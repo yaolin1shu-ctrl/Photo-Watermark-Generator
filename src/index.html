@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>今日水印相机</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Microsoft YaHei", Arial, sans-serif;
+      color: #1f2937;
+      background: #eef2f7;
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      min-height: 100vh;
+    }
+
+    .control-panel {
+      padding: 22px;
+      background: #fff;
+      border-right: 1px solid #d9e2ec;
+      box-shadow: 4px 0 24px rgba(15, 23, 42, 0.06);
+      overflow-y: auto;
+    }
+
+    .control-panel h1 {
+      margin: 0 0 8px;
+      font-size: 22px;
+    }
+
+    .control-panel p {
+      margin: 0 0 20px;
+      color: #64748b;
+      line-height: 1.6;
+    }
+
+    .panel-section {
+      padding-top: 18px;
+      margin-top: 18px;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .panel-section h2 {
+      margin: 0 0 14px;
+      font-size: 15px;
+      color: #0f172a;
+    }
+
+    .form-field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .checkbox-field {
+      flex-direction: row;
+      align-items: center;
+      gap: 10px;
+    }
+
+    label {
+      font-size: 14px;
+      font-weight: 700;
+      color: #334155;
+    }
+
+    input,
+    select {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font: inherit;
+      color: #0f172a;
+      background: #fff;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: #2563eb;
+      outline: 3px solid rgba(37, 99, 235, 0.15);
+    }
+
+    .date-line-preview,
+    .position-readout {
+      min-height: 22px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: #eff6ff;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .date-line-preview { color: #1d4ed8; }
+
+    .position-readout {
+      color: #334155;
+      background: #f1f5f9;
+      font-size: 13px;
+      line-height: 1.6;
+      white-space: pre-line;
+    }
+
+    .position-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-top: 22px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .primary-button {
+      color: #fff;
+      background: #2563eb;
+    }
+
+    .secondary-button {
+      color: #1d4ed8;
+      background: #dbeafe;
+    }
+
+    .preview-area {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      padding: 24px;
+    }
+
+    .preview-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .preview-header h2 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    .preview-header span {
+      color: #64748b;
+      font-size: 14px;
+    }
+
+    .canvas-stage {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex: 1;
+      min-height: 0;
+      padding: 18px;
+      border-radius: 18px;
+      background:
+        linear-gradient(45deg, rgba(148, 163, 184, 0.18) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(148, 163, 184, 0.18) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(148, 163, 184, 0.18) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(148, 163, 184, 0.18) 75%);
+      background-color: #cbd5e1;
+      background-size: 24px 24px;
+      background-position: 0 0, 0 12px, 12px -12px, -12px 0;
+      overflow: hidden;
+    }
+
+    .canvas-stack {
+      position: relative;
+      width: min(100%, calc((100vh - 128px) * 1279 / 1706));
+      max-height: calc(100vh - 128px);
+      aspect-ratio: 1279 / 1706;
+      border-radius: 8px;
+      background: #111827;
+      box-shadow: 0 18px 50px rgba(15, 23, 42, 0.28);
+      overflow: hidden;
+    }
+
+    .canvas-layer {
+      position: absolute;
+      inset: 0;
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .preview-layer { z-index: 2; }
+
+    .adjust-layer {
+      z-index: 3;
+      cursor: move;
+      pointer-events: auto;
+    }
+
+    .hint {
+      margin-top: 14px;
+      color: #64748b;
+      font-size: 13px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <main class="app-shell">
+    <aside class="control-panel">
+      <h1>今日水印相机</h1>
+      <p>上传图片后生成预览。bj.png 底层水印固定不动，可以选择元素后用鼠标拖动或方向键微调时间、地址、日期和防伪码。</p>
+
+      <div class="form-field">
+        <label for="imageInput">上传图片</label>
+        <input id="imageInput" type="file" accept="image/*">
+      </div>
+
+      <div class="form-field">
+        <label for="rotationSelect">原图方向</label>
+        <select id="rotationSelect">
+          <option value="0">不旋转</option>
+          <option value="90">右转 90°</option>
+          <option value="180">旋转 180°</option>
+          <option value="270">左转 90°</option>
+        </select>
+      </div>
+
+      <div class="form-field">
+        <label for="dateInput">日期</label>
+        <input id="dateInput" type="date">
+        <div id="dateLinePreview" class="date-line-preview" aria-live="polite"></div>
+      </div>
+
+      <div class="form-field">
+        <label for="timeInput">时间</label>
+        <input id="timeInput" type="time">
+      </div>
+
+      <div class="form-field">
+        <label for="locationInput">地点</label>
+        <input id="locationInput" type="text" placeholder="例如：湖北省荆州市洪湖市峰口镇平琴医馆">
+      </div>
+
+      <section class="panel-section">
+        <h2>水印微调</h2>
+
+        <div class="form-field">
+          <label for="adjustTargetSelect">选择要调整的水印元素</label>
+          <select id="adjustTargetSelect">
+            <option value="badge">badge / 时间</option>
+            <option value="location">地址</option>
+            <option value="dateLine">日期</option>
+            <option value="rightBlock">防伪码</option>
+          </select>
+        </div>
+
+        <div class="position-grid">
+          <div class="form-field">
+            <label for="nudgeStepInput">方向键步长</label>
+            <input id="nudgeStepInput" type="number" min="1" max="50" step="1" value="1">
+          </div>
+        </div>
+
+        <div id="positionReadout" class="position-readout">x: 0, y: 0</div>
+
+        <button id="savePositionsButton" class="primary-button" type="button">保存微调设置</button>
+        <button id="resetPositionsButton" class="secondary-button" type="button">恢复默认位置</button>
+      </section>
+
+      <div class="button-row">
+        <button id="generatePreviewButton" class="primary-button" type="button">生成预览</button>
+        <button id="exportJpgButton" class="secondary-button" type="button">导出 JPG</button>
+      </div>
+    </aside>
+
+    <section class="preview-area">
+      <div class="preview-header">
+        <h2>预览</h2>
+        <span>实际画布尺寸固定为 1279 x 1706</span>
+      </div>
+
+      <div class="canvas-stage">
+        <div class="canvas-stack">
+          <canvas id="previewCanvas" class="canvas-layer preview-layer" width="1279" height="1706"></canvas>
+          <canvas id="adjustCanvas" class="canvas-layer adjust-layer" width="1279" height="1706" tabindex="0"></canvas>
+        </div>
+      </div>
+
+      <div class="hint">选择左侧水印元素后，可在预览图上拖动，或用方向键微调；按住 Shift 为 10 倍步长。导出 JPG 会使用调整后的位置。</div>
+    </section>
+  </main>
+
+  <script type="module" src="./renderer.js"></script>
+</body>
+</html>
